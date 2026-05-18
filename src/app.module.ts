@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common'
-import { ConfigModule, ConfigService } from '@nestjs/config'
-import { TypeOrmModule } from '@nestjs/typeorm'
+import { ConfigModule } from '@nestjs/config'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
+import { PrismaModule } from './prisma/prisma.module'
 import { BarbeariaModule } from './barbearia/barbearia.module'
 import { UsuarioModule } from './usuario/usuario.module'
 import { BarbeiroModule } from './barbeiro/barbeiro.module'
@@ -18,22 +18,7 @@ import { NotificacaoModule } from './notificacao/notificacao.module'
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('DB_HOST'),
-        port: config.get<number>('DB_PORT', 5432),
-        username: config.get<string>('DB_USER'),
-        password: config.get<string>('DB_PASS'),
-        database: config.get<string>('DB_NAME', 'postgres'),
-        ssl: config.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
-        autoLoadEntities: true,
-        synchronize: false,
-        logging: config.get<string>('NODE_ENV') !== 'production',
-      }),
-    }),
+    PrismaModule,
     BarbeariaModule,
     UsuarioModule,
     BarbeiroModule,

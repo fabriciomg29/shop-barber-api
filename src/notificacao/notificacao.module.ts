@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common'
-import { TypeOrmModule } from '@nestjs/typeorm'
-import { NotificacaoWhatsapp } from './entities/notificacao-whatsapp.entity'
+import { NotificacaoController } from './notificacao.controller'
+import { NotificacaoService } from './notificacao.service'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([NotificacaoWhatsapp])],
-  exports: [TypeOrmModule],
+  controllers: [NotificacaoController],
+  providers: [NotificacaoService],
 })
 export class NotificacaoModule {}

@@ -1,0 +1,685 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DiaSemana {
+  dom
+  seg
+  ter
+  qua
+  qui
+  sex
+  sab
+
+  @@map("dia_semana")
+}
+
+enum JornadaTipo {
+  off
+  trabalha
+
+  @@map("jornada_tipo")
+}
+
+enum RoleUsuario {
+  dono
+  barbeiro
+
+  @@map("role_usuario")
+}
+
+enum StatusAgendamento {
+  confirmado
+  aguardando
+  em_cadeira
+  concluido
+  bloqueado
+  nao_compareceu
+  encaixe
+
+  @@map("status_agendamento")
+}
+
+enum OrigemAgendamento {
+  cliente_online
+  tablet
+  encaixe
+  recorrencia
+
+  @@map("origem_agendamento")
+}
+
+enum FormaPagamento {
+  pix
+  credito
+  debito
+  dinheiro
+
+  @@map("forma_pagamento")
+}
+
+enum StatusEncaixe {
+  aguardando
+  alocado
+  cancelado
+
+  @@map("status_encaixe")
+}
+
+enum StatusSolicitacaoTroca {
+  pendente
+  aprovada
+  recusada
+
+  @@map("status_solicitacao_troca")
+}
+
+enum TipoProduto {
+  insumo
+  venda
+
+  @@map("tipo_produto")
+}
+
+enum TipoMovimentacaoEstoque {
+  entrada
+  saida
+  ajuste
+
+  @@map("tipo_movimentacao_estoque")
+}
+
+enum OrigemMovimentacao {
+  atendimento
+  compra
+  ajuste_manual
+  venda_avulsa
+
+  @@map("origem_movimentacao")
+}
+
+enum StatusPedidoFornecedor {
+  gerado
+  enviado
+  recebido
+
+  @@map("status_pedido_fornecedor")
+}
+
+enum OrigemCheckIn {
+  app
+  tablet
+  manual
+
+  @@map("origem_check_in")
+}
+
+enum StatusNotificacao {
+  fila
+  enviado
+  falha
+  lido
+
+  @@map("status_notificacao")
+}
+
+enum TipoNotificacao {
+  confirmacao
+  lembrete
+  cancelamento
+  remarcacao
+  reativacao
+  pos_atendimento
+  aniversario
+
+  @@map("tipo_notificacao")
+}
+
+model Barbearia {
+  id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome                       String
+  endereco                   String?
+  cidade                     String
+  telefone                   String?
+  instagram                  String?
+  cancelamentoMinHoras       Int      @default(2) @map("cancelamento_min_horas") @db.SmallInt
+  remarcacaoMinHoras         Int      @default(2) @map("remarcacao_min_horas") @db.SmallInt
+  lembreteWhatsappHoras      Int      @default(1) @map("lembrete_whatsapp_horas") @db.SmallInt
+  fidelidadeSelosNecessarios Int      @default(10) @map("fidelidade_selos_necessarios") @db.SmallInt
+  fidelidadeRecompensa       String   @default("Corte grátis") @map("fidelidade_recompensa")
+  fidelidadeDiasInatividade  Int      @default(60) @map("fidelidade_dias_inatividade") @db.SmallInt
+  metaDiaria                 Decimal  @default(0) @map("meta_diaria") @db.Decimal(10, 2)
+  metaMensal                 Decimal  @default(0) @map("meta_mensal") @db.Decimal(10, 2)
+  horariosFuncionamento      Json     @default("{}") @map("horarios_funcionamento")
+  createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  usuarios           Usuario[]
+  barbeiros          Barbeiro[]
+  servicos           Servico[]
+  clientes           Cliente[]
+  agendamentos       Agendamento[]
+  encaixes           Encaixe[]
+  caixas             Caixa[]
+  atendimentos       Atendimento[]
+  fornecedores       Fornecedor[]
+  produtos           Produto[]
+  comissaoPagamentos ComissaoPagamento[]
+  pedidosFornecedor  PedidoFornecedor[]
+  comunicados        Comunicado[]
+  notificacoes       NotificacaoWhatsapp[]
+
+  @@map("barbearia")
+}
+
+model Usuario {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId String      @map("barbearia_id") @db.Uuid
+  email       String      @unique
+  nome        String
+  role        RoleUsuario @default(barbeiro)
+  ativo       Boolean     @default(true)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  barbearia         Barbearia             @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbeiros         Barbeiro[]
+  caixasAbertas     Caixa[]               @relation("CaixaAbertoPor")
+  caixasFechadas    Caixa[]               @relation("CaixaFechadoPor")
+  comissoes         ComissaoPagamento[]
+  movimentacoes     MovimentacaoEstoque[]
+  pedidosFornecedor PedidoFornecedor[]
+  comunicados       Comunicado[]
+
+  @@index([barbeariaId], map: "idx_usuario_barbearia")
+  @@map("usuario")
+}
+
+model Barbeiro {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId        String   @map("barbearia_id") @db.Uuid
+  usuarioId          String?  @map("usuario_id") @db.Uuid
+  nome               String
+  apelido            String
+  iniciais           String   @db.VarChar(3)
+  papel              String?
+  fotoUrl            String?  @map("foto_url")
+  tomDePele          String?  @map("tom_de_pele") @db.VarChar(7)
+  anosDeOficio       Int      @default(0) @map("anos_de_oficio") @db.SmallInt
+  comissaoPercentual Decimal  @default(50) @map("comissao_percentual") @db.Decimal(5, 2)
+  metaMensal         Decimal  @default(0) @map("meta_mensal") @db.Decimal(10, 2)
+  especialidades     String[] @default([])
+  avaliacaoMedia     Decimal  @default(0) @map("avaliacao_media") @db.Decimal(3, 2)
+  totalAvaliacoes    Int      @default(0) @map("total_avaliacoes")
+  ativo              Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  barbearia          Barbearia           @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  usuario            Usuario?            @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  servicos           BarbeiroServico[]
+  jornadas           JornadaBarbeiro[]
+  pontosDia          PontoDia[]
+  agendamentos       Agendamento[]
+  encaixesPreferido  Encaixe[]
+  solicitacoesDe     SolicitacaoTroca[]  @relation("SolicitacaoDe")
+  solicitacoesPara   SolicitacaoTroca[]  @relation("SolicitacaoPara")
+  atendimentos       Atendimento[]
+  comissoes          ComissaoPagamento[]
+  clientesPreferidos Cliente[]
+  comunicadosLidos   ComunicadoLeitura[]
+
+  @@index([barbeariaId], map: "idx_barbeiro_barbearia")
+  @@index([usuarioId], map: "idx_barbeiro_usuario")
+  @@map("barbeiro")
+}
+
+model JornadaBarbeiro {
+  barbeiroId String      @map("barbeiro_id") @db.Uuid
+  diaSemana  DiaSemana   @map("dia_semana")
+  tipo       JornadaTipo @default(trabalha)
+  inicio     DateTime?   @db.Time
+  fim        DateTime?   @db.Time
+
+  barbeiro Barbeiro @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+
+  @@id([barbeiroId, diaSemana])
+  @@map("jornada_barbeiro")
+}
+
+model Servico {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId String   @map("barbearia_id") @db.Uuid
+  slug        String
+  nome        String
+  duracaoMin  Int      @map("duracao_min") @db.SmallInt
+  preco       Decimal  @db.Decimal(10, 2)
+  icone       String?
+  popular     Boolean  @default(false)
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  barbearia           Barbearia               @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbeiros           BarbeiroServico[]
+  agendamentos        Agendamento[]
+  consumos            ConsumoServicoProduto[]
+  atendimentoServicos AtendimentoServico[]
+  encaixes            Encaixe[]
+
+  @@unique([barbeariaId, slug])
+  @@index([barbeariaId], map: "idx_servico_barbearia")
+  @@map("servico")
+}
+
+model BarbeiroServico {
+  barbeiroId String @map("barbeiro_id") @db.Uuid
+  servicoId  String @map("servico_id") @db.Uuid
+
+  barbeiro Barbeiro @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+  servico  Servico  @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+
+  @@id([barbeiroId, servicoId])
+  @@map("barbeiro_servico")
+}
+
+model Fornecedor {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId String   @map("barbearia_id") @db.Uuid
+  nome        String
+  contato     String?
+  email       String?
+  telefone    String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  barbearia         Barbearia          @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  produtos          Produto[]
+  pedidosFornecedor PedidoFornecedor[]
+
+  @@index([barbeariaId], map: "idx_fornecedor_barbearia")
+  @@map("fornecedor")
+}
+
+model Produto {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId   String      @map("barbearia_id") @db.Uuid
+  fornecedorId  String?     @map("fornecedor_id") @db.Uuid
+  nome          String
+  marca         String?
+  tipo          TipoProduto @default(insumo)
+  consumivel    Boolean     @default(false)
+  estoqueAtual  Decimal     @default(0) @map("estoque_atual") @db.Decimal(10, 3)
+  estoqueMinimo Decimal     @default(0) @map("estoque_minimo") @db.Decimal(10, 3)
+  precoCusto    Decimal?    @map("preco_custo") @db.Decimal(10, 2)
+  precoVenda    Decimal?    @map("preco_venda") @db.Decimal(10, 2)
+  ultimaCompra  DateTime?   @map("ultima_compra") @db.Date
+  ativo         Boolean     @default(true)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  barbearia           Barbearia               @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  fornecedor          Fornecedor?             @relation(fields: [fornecedorId], references: [id], onDelete: SetNull)
+  consumos            ConsumoServicoProduto[]
+  movimentacoes       MovimentacaoEstoque[]
+  atendimentoProdutos AtendimentoProduto[]
+  pedidoItens         PedidoFornecedorItem[]
+
+  @@index([barbeariaId], map: "idx_produto_barbearia")
+  @@map("produto")
+}
+
+model ConsumoServicoProduto {
+  servicoId  String  @map("servico_id") @db.Uuid
+  produtoId  String  @map("produto_id") @db.Uuid
+  quantidade Decimal @default(1) @db.Decimal(10, 3)
+
+  servico Servico @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  produto Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+
+  @@id([servicoId, produtoId])
+  @@map("consumo_servico_produto")
+}
+
+model Cliente {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId         String    @map("barbearia_id") @db.Uuid
+  nome                String
+  iniciais            String?   @db.VarChar(3)
+  telefone            String?
+  email               String?
+  dataNascimento      DateTime? @map("data_nascimento") @db.Date
+  observacoes         String?
+  barbeiroPreferidoId String?   @map("barbeiro_preferido_id") @db.Uuid
+  selosFidelidade     Int       @default(0) @map("selos_fidelidade") @db.SmallInt
+  recompensaPendente  Boolean   @default(false) @map("recompensa_pendente")
+  visitas             Int       @default(0)
+  ultimaVisita        DateTime? @map("ultima_visita") @db.Date
+  inativoDesde        DateTime? @map("inativo_desde") @db.Date
+  token               String    @unique
+  consentimentoLgpd   Boolean   @default(false) @map("consentimento_lgpd")
+  consentimentoEm     DateTime? @map("consentimento_em") @db.Timestamptz
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  barbearia         Barbearia             @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbeiroPreferido Barbeiro?             @relation(fields: [barbeiroPreferidoId], references: [id], onDelete: SetNull)
+  agendamentos      Agendamento[]
+  atendimentos      Atendimento[]
+  notificacoes      NotificacaoWhatsapp[]
+
+  @@index([barbeariaId], map: "idx_cliente_barbearia")
+  @@index([token], map: "idx_cliente_token")
+  @@index([telefone], map: "idx_cliente_telefone")
+  @@map("cliente")
+}
+
+model Agendamento {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId      String            @map("barbearia_id") @db.Uuid
+  barbeiroId       String            @map("barbeiro_id") @db.Uuid
+  clienteId        String?           @map("cliente_id") @db.Uuid
+  servicoId        String?           @map("servico_id") @db.Uuid
+  data             DateTime          @db.Date
+  inicio           DateTime          @db.Time
+  fim              DateTime          @db.Time
+  status           StatusAgendamento @default(confirmado)
+  precoSnapshot    Decimal?          @map("preco_snapshot") @db.Decimal(10, 2)
+  observacao       String?
+  origem           OrigemAgendamento @default(cliente_online)
+  tokenAgendamento String?           @unique @map("token_agendamento")
+  whatsappEnviado  Boolean           @default(false) @map("whatsapp_enviado")
+  lembreteEnviadoEm DateTime?        @map("lembrete_enviado_em") @db.Timestamptz
+  canceladoEm     DateTime?          @map("cancelado_em") @db.Timestamptz
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  barbearia         Barbearia             @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbeiro          Barbeiro              @relation(fields: [barbeiroId], references: [id])
+  cliente           Cliente?              @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  servico           Servico?              @relation(fields: [servicoId], references: [id])
+  atendimentos      Atendimento[]
+  encaixes          Encaixe[]
+  solicitacoesTroca SolicitacaoTroca[]
+  notificacoes      NotificacaoWhatsapp[]
+
+  @@index([barbeiroId, data], map: "idx_agendamento_barbeiro_data")
+  @@index([barbeariaId, data], map: "idx_agendamento_barbearia_data")
+  @@index([clienteId], map: "idx_agendamento_cliente")
+  @@index([status], map: "idx_agendamento_status")
+  @@map("agendamento")
+}
+
+model Encaixe {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId         String        @map("barbearia_id") @db.Uuid
+  clienteNome         String        @map("cliente_nome")
+  telefone            String?
+  servicoId           String        @map("servico_id") @db.Uuid
+  barbeiroPreferidoId String?       @map("barbeiro_preferido_id") @db.Uuid
+  status              StatusEncaixe @default(aguardando)
+  posicao             Int           @db.SmallInt
+  estimativaMin       Int?          @map("estimativa_min") @db.SmallInt
+  chegouEm            DateTime      @default(now()) @map("chegou_em") @db.Timestamptz
+  alocadoEm           DateTime?     @map("alocado_em") @db.Timestamptz
+  agendamentoId       String?       @map("agendamento_id") @db.Uuid
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  barbearia         Barbearia    @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  servico           Servico      @relation(fields: [servicoId], references: [id])
+  barbeiroPreferido Barbeiro?    @relation(fields: [barbeiroPreferidoId], references: [id], onDelete: SetNull)
+  agendamento       Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+
+  @@index([barbeariaId, status], map: "idx_encaixe_barbearia_status")
+  @@map("encaixe")
+}
+
+model SolicitacaoTroca {
+  id             String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agendamentoId  String                 @map("agendamento_id") @db.Uuid
+  deBarbeiroId   String                 @map("de_barbeiro_id") @db.Uuid
+  paraBarbeiroId String                 @map("para_barbeiro_id") @db.Uuid
+  motivo         String?
+  status         StatusSolicitacaoTroca @default(pendente)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  agendamento  Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+  deBarbeiro   Barbeiro    @relation("SolicitacaoDe", fields: [deBarbeiroId], references: [id])
+  paraBarbeiro Barbeiro    @relation("SolicitacaoPara", fields: [paraBarbeiroId], references: [id])
+
+  @@map("solicitacao_troca")
+}
+
+model Caixa {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId           String    @map("barbearia_id") @db.Uuid
+  data                  DateTime  @db.Date
+  abertoEm              DateTime  @default(now()) @map("aberto_em") @db.Timestamptz
+  fechadoEm             DateTime? @map("fechado_em") @db.Timestamptz
+  abertoPorId           String    @map("aberto_por_id") @db.Uuid
+  fechadoPorId          String?   @map("fechado_por_id") @db.Uuid
+  trocoInicial          Decimal   @default(0) @map("troco_inicial") @db.Decimal(10, 2)
+  totalBruto            Decimal   @default(0) @map("total_bruto") @db.Decimal(10, 2)
+  totalGorjetas         Decimal   @default(0) @map("total_gorjetas") @db.Decimal(10, 2)
+  totalAtendimentos     Int       @default(0) @map("total_atendimentos") @db.SmallInt
+  comissoesTotal        Decimal   @default(0) @map("comissoes_total") @db.Decimal(10, 2)
+  totalPix              Decimal   @default(0) @map("total_pix") @db.Decimal(10, 2)
+  totalCredito          Decimal   @default(0) @map("total_credito") @db.Decimal(10, 2)
+  totalDebito           Decimal   @default(0) @map("total_debito") @db.Decimal(10, 2)
+  totalDinheiro         Decimal   @default(0) @map("total_dinheiro") @db.Decimal(10, 2)
+  observacoesFechamento String?   @map("observacoes_fechamento")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  barbearia    Barbearia     @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  abertoPor    Usuario       @relation("CaixaAbertoPor", fields: [abertoPorId], references: [id])
+  fechadoPor   Usuario?      @relation("CaixaFechadoPor", fields: [fechadoPorId], references: [id])
+  atendimentos Atendimento[]
+
+  @@unique([barbeariaId, data])
+  @@index([barbeariaId, data], map: "idx_caixa_barbearia_data")
+  @@map("caixa")
+}
+
+model Atendimento {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId         String         @map("barbearia_id") @db.Uuid
+  agendamentoId       String?        @map("agendamento_id") @db.Uuid
+  caixaId             String?        @map("caixa_id") @db.Uuid
+  barbeiroId          String         @map("barbeiro_id") @db.Uuid
+  clienteId           String         @map("cliente_id") @db.Uuid
+  valorBruto          Decimal        @map("valor_bruto") @db.Decimal(10, 2)
+  gorjeta             Decimal        @default(0) @db.Decimal(10, 2)
+  formaPagamento      FormaPagamento @map("forma_pagamento")
+  comissaoCalculada   Decimal        @map("comissao_calculada") @db.Decimal(10, 2)
+  comissaoPaga        Boolean        @default(false) @map("comissao_paga")
+  avaliacaoNota       Int?           @map("avaliacao_nota") @db.SmallInt
+  avaliacaoComentario String?        @map("avaliacao_comentario")
+  avaliacaoEm         DateTime?      @map("avaliacao_em") @db.Timestamptz
+  finalizadoEm        DateTime       @default(now()) @map("finalizado_em") @db.Timestamptz
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  barbearia   Barbearia            @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  agendamento Agendamento?         @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+  caixa       Caixa?               @relation(fields: [caixaId], references: [id])
+  barbeiro    Barbeiro             @relation(fields: [barbeiroId], references: [id])
+  cliente     Cliente              @relation(fields: [clienteId], references: [id])
+  servicos    AtendimentoServico[]
+  produtos    AtendimentoProduto[]
+
+  @@index([barbeiroId], map: "idx_atendimento_barbeiro")
+  @@index([clienteId], map: "idx_atendimento_cliente")
+  @@index([caixaId], map: "idx_atendimento_caixa")
+  @@index([barbeariaId, finalizadoEm], map: "idx_atendimento_barbearia_data")
+  @@map("atendimento")
+}
+
+model AtendimentoServico {
+  atendimentoId String  @map("atendimento_id") @db.Uuid
+  servicoId     String  @map("servico_id") @db.Uuid
+  precoSnapshot Decimal @map("preco_snapshot") @db.Decimal(10, 2)
+
+  atendimento Atendimento @relation(fields: [atendimentoId], references: [id], onDelete: Cascade)
+  servico     Servico     @relation(fields: [servicoId], references: [id])
+
+  @@id([atendimentoId, servicoId])
+  @@map("atendimento_servico")
+}
+
+model AtendimentoProduto {
+  atendimentoId String   @map("atendimento_id") @db.Uuid
+  produtoId     String   @map("produto_id") @db.Uuid
+  quantidade    Decimal  @db.Decimal(10, 3)
+  precoSnapshot Decimal? @map("preco_snapshot") @db.Decimal(10, 2)
+
+  atendimento Atendimento @relation(fields: [atendimentoId], references: [id], onDelete: Cascade)
+  produto     Produto     @relation(fields: [produtoId], references: [id])
+
+  @@id([atendimentoId, produtoId])
+  @@map("atendimento_produto")
+}
+
+model ComissaoPagamento {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId     String         @map("barbearia_id") @db.Uuid
+  barbeiroId      String         @map("barbeiro_id") @db.Uuid
+  valor           Decimal        @db.Decimal(10, 2)
+  formaPagamento  FormaPagamento @map("forma_pagamento")
+  periodoInicio   DateTime       @map("periodo_inicio") @db.Date
+  periodoFim      DateTime       @map("periodo_fim") @db.Date
+  registradoPorId String         @map("registrado_por") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  barbearia     Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbeiro      Barbeiro  @relation(fields: [barbeiroId], references: [id])
+  registradoPor Usuario   @relation(fields: [registradoPorId], references: [id])
+
+  @@index([barbeiroId, periodoFim], map: "idx_comissao_pagamento_barbeiro")
+  @@map("comissao_pagamento")
+}
+
+model MovimentacaoEstoque {
+  id            String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  produtoId     String                  @map("produto_id") @db.Uuid
+  tipo          TipoMovimentacaoEstoque
+  origem        OrigemMovimentacao
+  quantidade    Decimal                 @db.Decimal(10, 3)
+  estoqueAntes  Decimal                 @map("estoque_antes") @db.Decimal(10, 3)
+  estoqueDepois Decimal                 @map("estoque_depois") @db.Decimal(10, 3)
+  atendimentoId String?                 @map("atendimento_id") @db.Uuid
+  pedidoId      String?                 @map("pedido_id") @db.Uuid
+  observacao    String?
+  criadoPorId   String?                 @map("criado_por") @db.Uuid
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz
+
+  produto   Produto           @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  criadoPor Usuario?          @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
+  pedido    PedidoFornecedor? @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
+
+  @@index([produtoId, createdAt], map: "idx_movimentacao_produto")
+  @@map("movimentacao_estoque")
+}
+
+model PedidoFornecedor {
+  id           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId  String                 @map("barbearia_id") @db.Uuid
+  fornecedorId String                 @map("fornecedor_id") @db.Uuid
+  status       StatusPedidoFornecedor @default(gerado)
+  criadoPorId  String                 @map("criado_por") @db.Uuid
+  createdAt    DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  barbearia     Barbearia              @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  fornecedor    Fornecedor             @relation(fields: [fornecedorId], references: [id])
+  criadoPor     Usuario                @relation(fields: [criadoPorId], references: [id])
+  itens         PedidoFornecedorItem[]
+  movimentacoes MovimentacaoEstoque[]
+
+  @@index([barbeariaId], map: "idx_pedido_fornecedor_barbearia")
+  @@map("pedido_fornecedor")
+}
+
+model PedidoFornecedorItem {
+  pedidoId      String   @map("pedido_id") @db.Uuid
+  produtoId     String   @map("produto_id") @db.Uuid
+  quantidade    Decimal  @db.Decimal(10, 3)
+  custoUnitario Decimal? @map("custo_unitario") @db.Decimal(10, 2)
+
+  pedido  PedidoFornecedor @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  produto Produto          @relation(fields: [produtoId], references: [id])
+
+  @@id([pedidoId, produtoId])
+  @@map("pedido_fornecedor_item")
+}
+
+model PontoDia {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeiroId    String         @map("barbeiro_id") @db.Uuid
+  data          DateTime       @db.Date
+  checkIn       DateTime?      @map("check_in") @db.Time
+  checkOut      DateTime?      @map("check_out") @db.Time
+  origemCheckIn OrigemCheckIn? @map("origem_check_in")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  barbeiro Barbeiro @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+
+  @@unique([barbeiroId, data])
+  @@index([barbeiroId, data], map: "idx_ponto_barbeiro_data")
+  @@map("ponto_dia")
+}
+
+model Comunicado {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId String   @map("barbearia_id") @db.Uuid
+  autorId     String   @map("autor_id") @db.Uuid
+  titulo      String
+  corpo       String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  barbearia Barbearia           @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  autor     Usuario             @relation(fields: [autorId], references: [id])
+  leituras  ComunicadoLeitura[]
+
+  @@index([barbeariaId, createdAt(sort: Desc)], map: "idx_comunicado_barbearia")
+  @@map("comunicado")
+}
+
+model ComunicadoLeitura {
+  comunicadoId String   @map("comunicado_id") @db.Uuid
+  barbeiroId   String   @map("barbeiro_id") @db.Uuid
+  lidoEm       DateTime @default(now()) @map("lido_em") @db.Timestamptz
+
+  comunicado Comunicado @relation(fields: [comunicadoId], references: [id], onDelete: Cascade)
+  barbeiro   Barbeiro   @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+
+  @@id([comunicadoId, barbeiroId])
+  @@map("comunicado_leitura")
+}
+
+model NotificacaoWhatsapp {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barbeariaId   String            @map("barbearia_id") @db.Uuid
+  agendamentoId String?           @map("agendamento_id") @db.Uuid
+  clienteId     String?           @map("cliente_id") @db.Uuid
+  paraTelefone  String            @map("para_telefone")
+  tipo          TipoNotificacao
+  template      String
+  variaveis     Json              @default("{}")
+  status        StatusNotificacao @default(fila)
+  erroMensagem  String?           @map("erro_mensagem")
+  enviadoEm     DateTime?         @map("enviado_em") @db.Timestamptz
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  barbearia   Barbearia    @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  agendamento Agendamento? @relation(fields: [agendamentoId], references: [id], onDelete: SetNull)
+  cliente     Cliente?     @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+
+  @@index([barbeariaId, createdAt(sort: Desc)], map: "idx_notificacao_barbearia")
+  @@index([agendamentoId], map: "idx_notificacao_agendamento")
+  @@map("notificacao_whatsapp")
+}

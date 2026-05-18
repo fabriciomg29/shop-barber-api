@@ -1,98 +1,203 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Shop Barber API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API REST para gestão de barbearias. Construída com **NestJS**, **Prisma** e **PostgreSQL**, pronta para rodar via **Docker**.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Stack
 
-## Description
+| Camada | Tecnologia |
+|---|---|
+| Framework | NestJS 11 + TypeScript |
+| ORM | Prisma 7 |
+| Banco de dados | PostgreSQL 16 |
+| Runtime | Node.js 22 |
+| Containerização | Docker + Docker Compose |
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## Arquitetura
 
-```bash
-$ npm install
+A aplicação segue a arquitetura modular do NestJS. Cada domínio de negócio possui seu próprio módulo isolado. O acesso ao banco é centralizado no `PrismaModule`, que é global e injetado em qualquer módulo sem necessidade de importação explícita.
+
+```
+src/
+├── prisma/                  # PrismaService (global) + PrismaModule
+├── barbearia/               # Cadastro da barbearia e configurações
+├── usuario/                 # Usuários do sistema (dono, barbeiro)
+├── barbeiro/                # Perfil, jornada e ponto do barbeiro
+├── servico/                 # Catálogo de serviços oferecidos
+├── cliente/                 # Cadastro de clientes (com token LGPD)
+├── agendamento/             # Agendamentos, encaixes e trocas
+├── atendimento/             # Atendimentos finalizados e caixa
+├── estoque/                 # Produtos, fornecedores e movimentações
+├── financeiro/              # Pagamento de comissões
+├── comunicado/              # Comunicados internos entre equipe
+└── notificacao/             # Log de notificações WhatsApp
 ```
 
-## Compile and run the project
+### Módulos de domínio
 
-```bash
-# development
-$ npm run start
+| Módulo | Responsabilidade |
+|---|---|
+| `BarbeariaModule` | Configurações gerais, horários de funcionamento, metas e fidelidade |
+| `UsuarioModule` | Controle de acesso (roles: `dono`, `barbeiro`) |
+| `BarbeiroModule` | Perfil do barbeiro, jornada semanal (`JornadaBarbeiro`) e ponto diário (`PontoDia`) |
+| `ServicoModule` | Catálogo de serviços com slug único por barbearia |
+| `ClienteModule` | Cadastro com token de acesso, programa de fidelidade e controle LGPD |
+| `AgendamentoModule` | Agenda, fila de encaixes (walk-in) e solicitações de troca entre barbeiros |
+| `AtendimentoModule` | Registro de atendimentos finalizados, combos de serviços/produtos e sessão de caixa |
+| `EstoqueModule` | Produtos, fornecedores, consumo por serviço, movimentações e pedidos a fornecedores |
+| `FinanceiroModule` | Acertos de comissão com barbeiros |
+| `ComunicadoModule` | Comunicados internos com controle de leitura por barbeiro |
+| `NotificacaoModule` | Fila e log de envio de notificações WhatsApp |
 
-# watch mode
-$ npm run start:dev
+### Schema do banco
 
-# production mode
-$ npm run start:prod
+O schema completo está em `prisma/schema.prisma` e reflete o DDL de `init_schema.sql` (PostgreSQL 15+, compatível com Supabase).
+
+**24 models · 15 enums**
+
+```
+Barbearia · Usuario · Barbeiro · JornadaBarbeiro · PontoDia
+Servico · BarbeiroServico · Cliente
+Agendamento · Encaixe · SolicitacaoTroca
+Caixa · Atendimento · AtendimentoServico · AtendimentoProduto
+Fornecedor · Produto · ConsumoServicoProduto
+MovimentacaoEstoque · PedidoFornecedor · PedidoFornecedorItem
+ComissaoPagamento · Comunicado · ComunicadoLeitura · NotificacaoWhatsapp
 ```
 
-## Run tests
+---
+
+## Pré-requisitos
+
+- [Node.js 22+](https://nodejs.org/)
+- [Docker](https://www.docker.com/) e [Docker Compose](https://docs.docker.com/compose/) — para execução containerizada
+
+---
+
+## Variáveis de ambiente
+
+Copie o arquivo de exemplo e ajuste conforme o ambiente:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+cp .env.example .env
 ```
 
-## Deployment
+| Variável | Descrição | Padrão (Docker) |
+|---|---|---|
+| `DATABASE_URL` | Connection string PostgreSQL | `postgresql://postgres:postgres@db:5432/shop_barber?schema=public` |
+| `NODE_ENV` | Ambiente de execução | `development` |
+| `PORT` | Porta da API | `3000` |
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+---
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Execução com Docker (recomendado)
+
+Sobe a API e o PostgreSQL juntos. O `init_schema.sql` é executado automaticamente na primeira inicialização do banco.
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Build e start
+docker compose up --build
+
+# Apenas start (após o primeiro build)
+docker compose up
+
+# Em background
+docker compose up -d --build
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+A API estará disponível em `http://localhost:3000`.
 
-## Resources
+O banco persiste os dados no volume `postgres_data`. Para resetar completamente:
 
-Check out a few resources that may come in handy when working with NestJS:
+```bash
+docker compose down -v
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+---
 
-## Support
+## Execução local (sem Docker)
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Requer um PostgreSQL local ou remoto configurado no `.env`.
 
-## Stay in touch
+```bash
+# 1. Instalar dependências
+npm install
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+# 2. Gerar o Prisma Client
+npx prisma generate
 
-## License
+# 3. Aplicar o schema no banco
+npx prisma migrate dev
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+# 4. Iniciar em modo watch
+npm run start:dev
+```
+
+### Scripts disponíveis
+
+```bash
+npm run start:dev     # desenvolvimento com hot-reload
+npm run start:debug   # desenvolvimento com debugger
+npm run build         # compilar TypeScript
+npm run start:prod    # iniciar a build compilada
+npm run lint          # lint + auto-fix
+npm run format        # formatar com Prettier
+npm run test          # testes unitários
+npm run test:e2e      # testes end-to-end
+npm run test:cov      # cobertura de testes
+```
+
+---
+
+## Prisma
+
+```bash
+# Gerar o client após alterar o schema
+npx prisma generate
+
+# Criar e aplicar uma nova migration
+npx prisma migrate dev --name nome_da_migration
+
+# Aplicar migrations em produção
+npx prisma migrate deploy
+
+# Interface visual do banco
+npx prisma studio
+```
+
+O arquivo de configuração do Prisma 7 fica em `prisma.config.ts`. A `DATABASE_URL` é lida da variável de ambiente — não é definida diretamente no `schema.prisma`.
+
+---
+
+## Estrutura de arquivos
+
+```
+shop-barber-api/
+├── prisma/
+│   ├── schema.prisma          # Schema completo (models + enums)
+│   └── migrations/            # Histórico de migrations
+├── prisma.config.ts           # Configuração do Prisma 7 (datasource URL)
+├── src/
+│   ├── main.ts
+│   ├── app.module.ts
+│   ├── prisma/
+│   │   ├── prisma.service.ts  # PrismaClient com lifecycle hooks NestJS
+│   │   └── prisma.module.ts   # Módulo global
+│   ├── barbearia/
+│   ├── usuario/
+│   ├── barbeiro/
+│   ├── servico/
+│   ├── cliente/
+│   ├── agendamento/
+│   ├── atendimento/
+│   ├── estoque/
+│   ├── financeiro/
+│   ├── comunicado/
+│   └── notificacao/
+├── init_schema.sql            # DDL PostgreSQL completo (fonte de verdade do schema)
+├── Dockerfile                 # Build multi-stage (builder + runner, node:22-alpine)
+├── docker-compose.yml         # API + PostgreSQL com healthcheck
+├── .env                       # Variáveis locais (não versionado)
+└── .env.example               # Template de variáveis
+```

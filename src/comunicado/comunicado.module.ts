@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common'
-import { TypeOrmModule } from '@nestjs/typeorm'
-import { Comunicado } from './entities/comunicado.entity'
-import { ComunicadoLeitura } from './entities/comunicado-leitura.entity'
+import { ComunicadoController } from './comunicado.controller'
+import { ComunicadoService } from './comunicado.service'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Comunicado, ComunicadoLeitura])],
-  exports: [TypeOrmModule],
+  controllers: [ComunicadoController],
+  providers: [ComunicadoService],
 })
 export class ComunicadoModule {}

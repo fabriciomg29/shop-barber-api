@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common'
-import { TypeOrmModule } from '@nestjs/typeorm'
-import { Barbearia } from './entities/barbearia.entity'
+import { BarbeariaController } from './barbearia.controller'
+import { BarbeariaService } from './barbearia.service'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Barbearia])],
-  exports: [TypeOrmModule],
+  controllers: [BarbeariaController],
+  providers: [BarbeariaService],
 })
 export class BarbeariaModule {}

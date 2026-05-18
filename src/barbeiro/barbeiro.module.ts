@@ -1,11 +1,9 @@
 import { Module } from '@nestjs/common'
-import { TypeOrmModule } from '@nestjs/typeorm'
-import { Barbeiro } from './entities/barbeiro.entity'
-import { JornadaBarbeiro } from './entities/jornada-barbeiro.entity'
-import { PontoDia } from './entities/ponto-dia.entity'
+import { BarbeiroController } from './barbeiro.controller'
+import { BarbeiroService } from './barbeiro.service'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Barbeiro, JornadaBarbeiro, PontoDia])],
-  exports: [TypeOrmModule],
+  controllers: [BarbeiroController],
+  providers: [BarbeiroService],
 })
 export class BarbeiroModule {}
