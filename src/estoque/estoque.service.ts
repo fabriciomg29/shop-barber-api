@@ -75,7 +75,12 @@ export class EstoqueService {
     const skip = (page - 1) * limit
     const where = produtoId ? { produtoId } : {}
     const [data, total] = await Promise.all([
-      this.prisma.movimentacaoEstoque.findMany({ skip, take: limit, where, orderBy: { createdAt: 'desc' } }),
+      this.prisma.movimentacaoEstoque.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy: { createdAt: 'desc' },
+      }),
       this.prisma.movimentacaoEstoque.count({ where }),
     ])
     return paginated(data, total, page, limit)

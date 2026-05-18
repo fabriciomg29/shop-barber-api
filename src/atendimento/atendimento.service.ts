@@ -15,12 +15,8 @@ export class AtendimentoService {
     return this.prisma.atendimento.create({
       data: {
         ...rest,
-        servicos: servicos
-          ? { createMany: { data: servicos } }
-          : undefined,
-        produtos: produtos
-          ? { createMany: { data: produtos } }
-          : undefined,
+        servicos: servicos ? { createMany: { data: servicos } } : undefined,
+        produtos: produtos ? { createMany: { data: produtos } } : undefined,
       },
       include: { servicos: true, produtos: true },
     })
@@ -38,7 +34,9 @@ export class AtendimentoService {
     if (filters.caixaId) where.caixaId = filters.caixaId
     const [data, total] = await Promise.all([
       this.prisma.atendimento.findMany({
-        skip, take: limit, where,
+        skip,
+        take: limit,
+        where,
         include: { servicos: true, produtos: true },
         orderBy: { finalizadoEm: 'desc' },
       }),

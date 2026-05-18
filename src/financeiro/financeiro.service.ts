@@ -21,7 +21,12 @@ export class FinanceiroService {
     if (filters.barbeariaId) where.barbeariaId = filters.barbeariaId
     if (filters.barbeiroId) where.barbeiroId = filters.barbeiroId
     const [data, total] = await Promise.all([
-      this.prisma.comissaoPagamento.findMany({ skip, take: limit, where, orderBy: { createdAt: 'desc' } }),
+      this.prisma.comissaoPagamento.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy: { createdAt: 'desc' },
+      }),
       this.prisma.comissaoPagamento.count({ where }),
     ])
     return paginated(data, total, page, limit)

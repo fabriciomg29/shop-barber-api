@@ -27,7 +27,12 @@ export class NotificacaoService {
     if (filters.barbeariaId) where.barbeariaId = filters.barbeariaId
     if (filters.status) where.status = filters.status
     const [data, total] = await Promise.all([
-      this.prisma.notificacaoWhatsapp.findMany({ skip, take: limit, where, orderBy: { createdAt: 'desc' } }),
+      this.prisma.notificacaoWhatsapp.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy: { createdAt: 'desc' },
+      }),
       this.prisma.notificacaoWhatsapp.count({ where }),
     ])
     return paginated(data, total, page, limit)
