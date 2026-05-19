@@ -7,5 +7,6 @@
   "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "prettier.requireConfig": true
+  "prettier.requireConfig": true,
+  "markdown.styles": [".vscode/markdown.css"]
 }

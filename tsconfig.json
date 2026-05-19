@@ -2,7 +2,7 @@
   "compilerOptions": {
     "types": ["jest"],
     "module": "commonjs",
-    "moduleResolution": "node",
+    "moduleResolution": "node10",
     "esModuleInterop": true,
     "isolatedModules": true,
     "declaration": true,
