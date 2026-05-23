@@ -2,6 +2,9 @@
 /dist
 /node_modules
 /build
+/libs/**/*.js
+/libs/**/*.js.map
+/libs/**/*.d.ts
 
 # Logs
 logs
