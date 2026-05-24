@@ -5,6 +5,12 @@
 /libs/**/*.js
 /libs/**/*.js.map
 /libs/**/*.d.ts
+/mocks/**/*.js
+/mocks/**/*.js.map
+/mocks/**/*.d.ts
+/prisma/seed.js
+/prisma/seed.js.map
+/prisma/seed.d.ts
 
 # Logs
 logs

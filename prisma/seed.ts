@@ -13,6 +13,7 @@ import {
   StatusEncaixe,
 } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+//import type { JornadaDia } from '../lib/types/barbeiro'
 import {
   barbearia as mockBarbearia,
   barbeiros as mockBarbeiros,
@@ -27,6 +28,7 @@ import {
   pontoDia as mockPontoDia,
   comunicados as mockComunicados,
 } from '../mocks/seeds/data'
+import { JornadaDia } from '../libs/types'
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const db = new PrismaClient({ adapter })
@@ -85,6 +87,11 @@ const ID = {
   } as Record<string, string>,
   caixa: 'a0000008-0000-4000-8000-000000000001',
   agendamento: {} as Record<string, string>,
+  comunicado: {
+    'com-1': 'a000000c-0000-4000-8000-000000000001',
+    'com-2': 'a000000c-0000-4000-8000-000000000002',
+    'com-3': 'a000000c-0000-4000-8000-000000000003',
+  } as Record<string, string>,
 }
 
 // Gera UUID para cada agendamento com base no índice
@@ -157,7 +164,7 @@ async function main() {
       fidelidadeDiasInatividade: mockBarbearia.configFidelidade.diasParaInatividade,
       metaDiaria: mockBarbearia.meta.diaria,
       metaMensal: mockBarbearia.meta.mensal,
-      horariosFuncionamento: mockBarbearia.horariosFuncionamento,
+      horariosFuncionamento: mockBarbearia.horariosFuncionamento as object,
     },
   })
   console.log('  ✓ Barbearia')
@@ -205,7 +212,7 @@ async function main() {
 
   // 4. Serviços
   for (const s of mockServicos) {
-    const sid = ID.servico[s.id]
+    const sid = ID.servico[s.id as keyof typeof ID.servico]
     await db.servico.upsert({
       where: { id: sid },
       update: {},
@@ -240,7 +247,7 @@ async function main() {
   await db.jornadaBarbeiro.deleteMany({ where: { barbeiro: { barbeariaId: ID.barbearia } } })
   for (const b of mockBarbeiros) {
     const bid = ID.barbeiro[b.id as keyof typeof ID.barbeiro]
-    for (const [dia, jornada] of Object.entries(b.jornada)) {
+    for (const [dia, jornada] of Object.entries(b.jornada) as [string, JornadaDia][]) {
       await db.jornadaBarbeiro.create({
         data: {
           barbeiroId: bid,
@@ -269,7 +276,7 @@ async function main() {
 
   // 8. Produtos
   for (const p of mockProdutos) {
-    const pid = ID.produto[p.id]
+    const pid = ID.produto[p.id as keyof typeof ID.produto]
     const fid = ID.fornecedor[p.fornecedor]
     await db.produto.upsert({
       where: { id: pid },
@@ -362,7 +369,7 @@ async function main() {
     const aid = ID.agendamento[a.id]
     const bid = ID.barbeiro[a.barbeiroId as keyof typeof ID.barbeiro]
     const cid = a.clienteId ? ID.cliente[a.clienteId] : null
-    const sid = a.servicoId ? ID.servico[a.servicoId] : null
+    const sid = a.servicoId ? ID.servico[a.servicoId as keyof typeof ID.servico] : null
     await db.agendamento.upsert({
       where: { id: aid },
       update: {},
@@ -388,7 +395,7 @@ async function main() {
 
   // 12. Encaixes
   for (const e of mockEncaixes) {
-    const sid = ID.servico[e.servicoId]
+    const sid = ID.servico[e.servicoId as keyof typeof ID.servico]
     await db.encaixe.upsert({
       where: { id: `a000000e-0000-4000-8000-00000000000${e.id.replace('w', '')}` },
       update: {},
@@ -430,6 +437,13 @@ async function main() {
   }
   console.log('  ✓ PontoDia (3)')
 
+  // 14. MovimentacoesEstoque
+  const ORIGEM_MOV_MAP: Record<string, OrigemMovimentacao> = {
+    compra: OrigemMovimentacao.compra,
+    venda_avulsa: OrigemMovimentacao.venda_avulsa,
+    atendimento: OrigemMovimentacao.atendimento,
+    ajuste_manual: OrigemMovimentacao.ajuste_manual,
+  }
   function obsToOrigem(obs: string): OrigemMovimentacao {
     if (obs.startsWith('Compra')) return OrigemMovimentacao.compra
     if (obs.includes('Venda avulsa')) return OrigemMovimentacao.venda_avulsa
@@ -439,7 +453,7 @@ async function main() {
 
   let movIdx = 0
   for (const [prodMockId, movs] of Object.entries(movimentacoesProduto)) {
-    const pid = ID.produto[prodMockId]
+    const pid = ID.produto[prodMockId as keyof typeof ID.produto]
     let estoqueAcum = 0
     for (const mov of movs) {
       const estoqueAntes = estoqueAcum
@@ -503,7 +517,7 @@ async function main() {
 
   // 16. Comunicados
   for (const com of mockComunicados) {
-    const comId = com.id
+    const comId = ID.comunicado[com.id]
     await db.comunicado.upsert({
       where: { id: comId },
       update: {},
@@ -526,7 +540,7 @@ async function main() {
       const bid = ID.barbeiro[bMockId as keyof typeof ID.barbeiro]
       if (!bid) continue
       await db.comunicadoLeitura.create({
-        data: { comunicadoId: com.id, barbeiroId: bid },
+        data: { comunicadoId: ID.comunicado[com.id], barbeiroId: bid },
       })
     }
   }

@@ -57,6 +57,11 @@ const ID = {
     },
     caixa: 'a0000008-0000-4000-8000-000000000001',
     agendamento: {},
+    comunicado: {
+        'com-1': 'a000000c-0000-4000-8000-000000000001',
+        'com-2': 'a000000c-0000-4000-8000-000000000002',
+        'com-3': 'a000000c-0000-4000-8000-000000000003',
+    },
 };
 data_1.agendamentos.forEach((a, i) => {
     ID.agendamento[a.id] = `a0000009-0000-4000-8000-${String(i + 1).padStart(12, '0')}`;
@@ -359,6 +364,12 @@ async function main() {
         });
     }
     console.log('  ✓ PontoDia (3)');
+    const ORIGEM_MOV_MAP = {
+        compra: client_1.OrigemMovimentacao.compra,
+        venda_avulsa: client_1.OrigemMovimentacao.venda_avulsa,
+        atendimento: client_1.OrigemMovimentacao.atendimento,
+        ajuste_manual: client_1.OrigemMovimentacao.ajuste_manual,
+    };
     function obsToOrigem(obs) {
         if (obs.startsWith('Compra'))
             return client_1.OrigemMovimentacao.compra;
@@ -430,7 +441,7 @@ async function main() {
     }
     console.log(`  ✓ Atendimentos (${atdIdx})`);
     for (const com of data_1.comunicados) {
-        const comId = com.id;
+        const comId = ID.comunicado[com.id];
         await db.comunicado.upsert({
             where: { id: comId },
             update: {},
@@ -452,7 +463,7 @@ async function main() {
             if (!bid)
                 continue;
             await db.comunicadoLeitura.create({
-                data: { comunicadoId: com.id, barbeiroId: bid },
+                data: { comunicadoId: ID.comunicado[com.id], barbeiroId: bid },
             });
         }
     }
@@ -465,4 +476,3 @@ main()
     process.exit(1);
 })
     .finally(() => db.$disconnect());
-//# sourceMappingURL=seed.js.map

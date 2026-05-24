@@ -6,7 +6,9 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "npm run format && nest build",
+    "build": "npm run format && npm run seed:build && nest build",
+    "seed:build": "tsc -p tsconfig.seed.json",
+    "seed": "node prisma/seed.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"libs/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -31,6 +33,7 @@
     "class-validator": "^0.15.1",
     "pg": "^8.20.0",
     "prisma": "^7.8.0",
+    "dotenv": "^17.4.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
@@ -45,7 +48,6 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.0.0",
     "@types/supertest": "^7.0.0",
-    "dotenv": "^17.4.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
@@ -60,6 +62,9 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   },
   "jest": {
     "moduleFileExtensions": [
