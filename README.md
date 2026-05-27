@@ -50,6 +50,83 @@ src/
 | `ComunicadoModule` | Comunicados internos com controle de leitura por barbeiro |
 | `NotificacaoModule` | Fila e log de envio de notificações WhatsApp |
 
+### Fluxo de uma requisição
+
+Toda requisição percorre sempre o mesmo caminho: **HTTP → Controller → Service → PrismaService → PostgreSQL**. Não há camadas extras — sem repositórios, sem use cases, sem adapters.
+
+```
+GET /clientes?barbeariaId=abc&ativo=true&page=1&limit=20
+        │
+        ▼
+ClienteController          (src/cliente/cliente.controller.ts)
+  @Get()
+  findAll(@Query() query: ClienteQueryDto)
+  │  • Valida e transforma os query params via ClienteQueryDto
+  │  • ClienteQueryDto estende PaginationDto (page, limit) e adiciona
+  │    barbeariaId (UUID opcional) e ativo (boolean opcional)
+  │  • Repassa os valores para o service
+        │
+        ▼
+ClienteService             (src/cliente/cliente.service.ts)
+  findAll(page, limit, barbeariaId?, ativo?)
+  │  • Monta o objeto `where` com os filtros recebidos
+  │  • ativo=true  → { inativoDesde: null }
+  │  • ativo=false → { inativoDesde: { not: null } }
+  │  • Executa duas queries em paralelo via Promise.all:
+  │      prisma.cliente.findMany(...)   → página de registros
+  │      prisma.cliente.count(...)      → total para paginação
+  │  • Retorna paginated(data, total, page, limit)
+        │
+        ▼
+PrismaService              (src/prisma/prisma.service.ts)
+  │  • Estende PrismaClient com adaptador pg (PrismaPg)
+  │  • É um serviço global — injetado em qualquer módulo sem
+  │    precisar importar PrismaModule explicitamente
+        │
+        ▼
+PostgreSQL                 (tabela `cliente`)
+```
+
+**Resposta:**
+
+```json
+{
+  "data": [ /* array de clientes */ ],
+  "total": 42,
+  "page": 1,
+  "limit": 20
+}
+```
+
+---
+
+#### Anatomia de um módulo
+
+Cada domínio tem exatamente estes arquivos:
+
+```
+cliente/
+├── cliente.module.ts       # declara controller e service do módulo
+├── cliente.controller.ts   # mapeia rotas HTTP, valida entrada via DTOs
+├── cliente.service.ts      # lógica de negócio, acessa o banco via PrismaService
+└── dto/
+    ├── create-cliente.dto.ts   # campos aceitos no POST
+    └── update-cliente.dto.ts   # campos aceitos no PATCH (todos opcionais)
+```
+
+O **Module** registra o Controller e o Service. O **Controller** recebe a requisição HTTP, passa pelos pipes de validação do NestJS (`class-validator` + `class-transformer`), e delega ao **Service**. O **Service** é onde vive toda a lógica — queries, regras de negócio, lançamento de exceções (`NotFoundException`, etc.). O **PrismaService** é injetado diretamente no service e expõe os models do schema como propriedades tipadas (`this.prisma.cliente`, `this.prisma.agendamento`, etc.).
+
+---
+
+#### Como adicionar um novo endpoint
+
+1. Crie ou edite o DTO em `dto/` com os campos e validações (`@IsString()`, `@IsUUID()`, etc.)
+2. Adicione o método no **Service** — monte o `where`, chame `this.prisma.<model>.<método>()`
+3. Adicione a rota no **Controller** com o decorator HTTP (`@Get`, `@Post`, etc.) e passe os params para o service
+4. O NestJS registra a rota automaticamente — não há arquivo de rotas central
+
+---
+
 ### Schema do banco
 
 O schema completo está em `prisma/schema.prisma` e reflete o DDL de `init_schema.sql` (PostgreSQL 15+, compatível com Supabase).

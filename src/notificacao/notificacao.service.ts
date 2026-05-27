@@ -12,7 +12,6 @@ export class NotificacaoService {
   async create(dto: CreateNotificacaoDto) {
     const { variaveis, ...rest } = dto
     return this.prisma.notificacaoWhatsapp.create({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: { ...rest, variaveis: (variaveis ?? {}) as any },
     })
   }

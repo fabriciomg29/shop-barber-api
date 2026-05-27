@@ -180,6 +180,7 @@ model Usuario {
   id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   barbeariaId String      @map("barbearia_id") @db.Uuid
   email       String      @unique
+  senhaHash   String?     @map("senha_hash")
   nome        String
   role        RoleUsuario @default(barbeiro)
   ativo       Boolean     @default(true)

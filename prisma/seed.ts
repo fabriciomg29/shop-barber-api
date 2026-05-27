@@ -13,6 +13,7 @@ import {
   StatusEncaixe,
 } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+import * as bcrypt from 'bcrypt'
 //import type { JornadaDia } from '../lib/types/barbeiro'
 import {
   barbearia as mockBarbearia,
@@ -170,13 +171,15 @@ async function main() {
   console.log('  ✓ Barbearia')
 
   // 2. Usuario (dono)
+  const senhaHash = await bcrypt.hash('123456', 10)
   await db.usuario.upsert({
     where: { id: ID.usuario.caio },
-    update: {},
+    update: { senhaHash },
     create: {
       id: ID.usuario.caio,
       barbeariaId: ID.barbearia,
       email: 'caio@ibirama.com',
+      senhaHash,
       nome: 'Caio Bertelli',
       role: RoleUsuario.dono,
     },

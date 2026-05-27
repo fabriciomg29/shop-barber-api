@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
 import { ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger'
-import { IsOptional, IsUUID } from 'class-validator'
+import { Transform } from 'class-transformer'
+import { IsBoolean, IsOptional, IsUUID } from 'class-validator'
 import { ClienteService } from './cliente.service'
 import { CreateClienteDto } from './dto/create-cliente.dto'
 import { UpdateClienteDto } from './dto/update-cliente.dto'
@@ -11,6 +12,14 @@ class ClienteQueryDto extends PaginationDto {
   @IsOptional()
   @IsUUID()
   barbeariaId?: string
+
+  @ApiPropertyOptional({ description: 'true = apenas ativos, false = apenas inativos' })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  ativo?: boolean
 }
 
 @ApiTags('Clientes')
@@ -27,7 +36,7 @@ export class ClienteController {
   @Get()
   @ApiOperation({ summary: 'Listar clientes' })
   findAll(@Query() query: ClienteQueryDto) {
-    return this.service.findAll(query.page ?? 1, query.limit ?? 20, query.barbeariaId)
+    return this.service.findAll(query.page ?? 1, query.limit ?? 20, query.barbeariaId, query.ativo)
   }
 
   @Get('token/:token')

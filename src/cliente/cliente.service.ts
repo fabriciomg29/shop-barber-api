@@ -15,9 +15,12 @@ export class ClienteService {
     })
   }
 
-  async findAll(page: number, limit: number, barbeariaId?: string) {
+  async findAll(page: number, limit: number, barbeariaId?: string, ativo?: boolean) {
     const skip = (page - 1) * limit
-    const where = barbeariaId ? { barbeariaId } : {}
+    const where: Record<string, unknown> = {}
+    if (barbeariaId) where.barbeariaId = barbeariaId
+    else if (ativo === true) where.inativoDesde = null
+    else if (ativo === false) where.inativoDesde = { not: null }
     const [data, total] = await Promise.all([
       this.prisma.cliente.findMany({ skip, take: limit, where, orderBy: { nome: 'asc' } }),
       this.prisma.cliente.count({ where }),
