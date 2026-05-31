@@ -164,32 +164,63 @@ cp .env.example .env
 |---|---|---|
 | `DATABASE_URL` | Connection string PostgreSQL | `postgresql://postgres:postgres@db:5432/shop_barber?schema=public` |
 | `NODE_ENV` | Ambiente de execução | `development` |
-| `PORT` | Porta da API | `3000` |
+| `PORT` | Porta da API | `4870` |
 
 ---
 
-## Execução com Docker (recomendado)
+## Execução com Docker — produção
 
-Sobe a API e o PostgreSQL juntos. O `init_schema.sql` é executado automaticamente na primeira inicialização do banco.
+Sobe a API (build compilada, `node dist/main.js`) e o PostgreSQL juntos. No start, o container aplica as migrations (`prisma migrate deploy`) e roda o seed.
 
 ```bash
 # Build e start
-docker compose up --build
+docker compose -f docker-compose.prod.yml up --build
 
 # Apenas start (após o primeiro build)
-docker compose up
+docker compose -f docker-compose.prod.yml up
 
 # Em background
-docker compose up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-A API estará disponível em `http://localhost:3000`.
+A API estará disponível em `http://localhost:4870`.
 
 O banco persiste os dados no volume `postgres_data`. Para resetar completamente:
 
 ```bash
-docker compose down -v
+docker compose -f docker-compose.prod.yml down -v
 ```
+
+---
+
+## Execução com Docker — desenvolvimento (watch mode)
+
+Ambiente de desenvolvimento containerizado que roda em **watch mode**: o código-fonte é montado via **bind-mount** dentro do container, então **alterações em arquivos `.ts` são refletidas automaticamente sem rebuild da imagem**.
+
+```bash
+# Primeira vez (ou após mudar package.json / schema): build + start
+docker compose -f docker-compose.dev.yml up --build
+
+# Dia a dia (sem rebuild)
+docker compose -f docker-compose.dev.yml up
+
+# Em background
+docker compose -f docker-compose.dev.yml up -d --build
+```
+
+No start, o container executa nesta ordem: `prisma generate` → `prisma migrate deploy` → seed (idempotente) → `npm run start:dev`. Ao salvar um arquivo em `src/`, o NestJS recompila e reinicia automaticamente.
+
+**Como funciona (sem rebuild):**
+- O serviço usa o estágio `dev` do `Dockerfile` (com `devDependencies` e o `@nestjs/cli`).
+- O código é montado com `.:/app` (bind-mount), e o `node_modules` fica num **volume anônimo** (`/app/node_modules`), preservando as dependências instaladas na imagem sem serem sobrescritas pelo host.
+
+Esse ambiente usa um volume de banco separado (`postgres_data_dev`). Para resetar:
+
+```bash
+docker compose -f docker-compose.dev.yml down -v
+```
+
+> **WSL2:** caso as alterações não disparem o watch, descomente `CHOKIDAR_USEPOLLING: "true"` no `docker-compose.dev.yml`.
 
 ---
 
@@ -273,8 +304,11 @@ shop-barber-api/
 │   ├── comunicado/
 │   └── notificacao/
 ├── init_schema.sql            # DDL PostgreSQL completo (fonte de verdade do schema)
-├── Dockerfile                 # Build multi-stage (builder + runner, node:22-alpine)
-├── docker-compose.yml         # API + PostgreSQL com healthcheck
+├── Dockerfile                 # Build multi-stage (dev + builder + runner, node:22-slim)
+├── docker-compose.prod.yml    # Produção: API (build) + PostgreSQL com healthcheck
+├── docker-compose.dev.yml     # Desenvolvimento: API em watch (bind-mount) + PostgreSQL
+├── docker-entrypoint.sh       # Entrypoint de produção (migrate + seed + start)
+├── docker-entrypoint.dev.sh   # Entrypoint de dev (generate + migrate + seed + watch)
 ├── .env                       # Variáveis locais (não versionado)
 └── .env.example               # Template de variáveis
 ```

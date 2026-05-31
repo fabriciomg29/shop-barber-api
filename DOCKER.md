@@ -6,8 +6,15 @@ Guia do Dockerfile e docker-compose deste projeto para consulta rápida.
 
 ## Visão Geral
 
+O projeto tem dois arquivos compose:
+
+| Arquivo | Uso | Como roda |
+|---|---|---|
+| `docker-compose.prod.yml` | Produção | Build compilada → `node dist/main.js` |
+| `docker-compose.dev.yml` | Desenvolvimento | Bind-mount do código → `nest start --watch` (sem rebuild) |
+
 ```
-docker compose up
+docker compose -f docker-compose.prod.yml up
        │
        ├─ 1. Sobe o banco Postgres (db)
        │       └─ Aguarda healthcheck passar
@@ -24,7 +31,27 @@ docker compose up
 
 ## Dockerfile
 
-O build tem **dois estágios** para manter a imagem de produção pequena e sem código-fonte.
+O build tem **três estágios**: `dev` (desenvolvimento em watch mode) e o par `builder` + `runner` que mantém a imagem de produção pequena e sem código-fonte.
+
+### Estágio `dev`
+
+Usado pelo `docker-compose.dev.yml`. Instala **todas** as deps (incluindo `devDependencies` e o `@nestjs/cli`) e gera o Prisma Client. Não copia o código — ele vem por bind-mount em runtime, permitindo watch mode sem rebuild.
+
+```dockerfile
+FROM node:22-slim AS dev
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+RUN npx prisma generate
+ENTRYPOINT ["./docker-entrypoint.dev.sh"]
+```
+
+> O `node_modules` (com o client gerado) fica baked na imagem e é preservado por um volume anônimo no compose, sem ser sobrescrito pelo bind-mount do host.
+
+---
 
 ### Estágio 1 — `builder`
 
@@ -104,7 +131,7 @@ COPY --from=builder /app/node_modules/@prisma  ./node_modules/@prisma
 > `.prisma/` e `@prisma/` são o Prisma Client gerado — eles **não** vêm do `npm install`, precisam ser copiados do `builder`.
 
 ```dockerfile
-EXPOSE 3000
+EXPOSE 4870
 CMD ["node", "dist/main.js"]
 ```
 
@@ -127,7 +154,7 @@ Arquivos que **não** entram no contexto de build enviado ao Docker daemon.
 
 ---
 
-## docker-compose.yml
+## docker-compose.prod.yml
 
 ### Serviço `db`
 
@@ -164,7 +191,7 @@ db:
 api:
   build: .
   ports:
-    - "3000:3000"
+    - "4870:4870"
   environment:
     DATABASE_URL: postgresql://postgres:postgres@db:5432/shop_barber?schema=public
     NODE_ENV: production
@@ -183,38 +210,65 @@ api:
 
 ---
 
+## docker-compose.dev.yml
+
+Ambiente de desenvolvimento em **watch mode**. Difere do de produção em três pontos:
+
+```yaml
+api:
+  build:
+    context: .
+    target: dev                # usa o estágio `dev` do Dockerfile
+  volumes:
+    - .:/app                    # bind-mount do código → reflete alterações sem rebuild
+    - /app/node_modules         # volume anônimo → preserva o node_modules da imagem
+  environment:
+    NODE_ENV: development
+```
+
+No start, o `docker-entrypoint.dev.sh` roda: `prisma generate` → `prisma migrate deploy` → seed → `npm run start:dev`. Ao salvar um arquivo em `src/`, o NestJS recompila e reinicia automaticamente — **sem rebuild da imagem**.
+
+O banco usa um volume separado (`postgres_data_dev`), isolando os dados de dev dos de produção.
+
+---
+
 ## Comandos Úteis
+
+Os comandos abaixo usam o compose de produção (`-f docker-compose.prod.yml`). Para o ambiente de desenvolvimento, troque por `-f docker-compose.dev.yml`.
 
 ```bash
 # Subir tudo (build + start)
-docker compose up --build
+docker compose -f docker-compose.prod.yml up --build
 
 # Subir em background
-docker compose up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 
 # Ver logs da API em tempo real
-docker compose logs -f api
+docker compose -f docker-compose.prod.yml logs -f api
 
 # Ver logs do banco
-docker compose logs -f db
+docker compose -f docker-compose.prod.yml logs -f db
 
 # Parar tudo (mantém volumes)
-docker compose down
+docker compose -f docker-compose.prod.yml down
 
 # Parar e apagar o volume do banco (reset total)
-docker compose down -v
+docker compose -f docker-compose.prod.yml down -v
 
 # Entrar no container da API
-docker compose exec api sh
+docker compose -f docker-compose.prod.yml exec api sh
 
 # Entrar no banco via psql
-docker compose exec db psql -U postgres -d shop_barber
+docker compose -f docker-compose.prod.yml exec db psql -U postgres -d shop_barber
 
 # Rebuild só da imagem da API (sem subir)
-docker compose build api
+docker compose -f docker-compose.prod.yml build api
 
 # Ver status dos containers
-docker compose ps
+docker compose -f docker-compose.prod.yml ps
+
+# Subir o ambiente de desenvolvimento (watch mode)
+docker compose -f docker-compose.dev.yml up --build
 ```
 
 ---
@@ -223,32 +277,34 @@ docker compose ps
 
 | Variável | Onde é definida | Valor |
 |---|---|---|
-| `DATABASE_URL` | `docker-compose.yml` → serviço `api` | `postgresql://postgres:postgres@db:5432/shop_barber?schema=public` |
-| `NODE_ENV` | `docker-compose.yml` → serviço `api` | `production` |
-| `POSTGRES_USER` | `docker-compose.yml` → serviço `db` | `postgres` |
-| `POSTGRES_PASSWORD` | `docker-compose.yml` → serviço `db` | `postgres` |
-| `POSTGRES_DB` | `docker-compose.yml` → serviço `db` | `shop_barber` |
+| `DATABASE_URL` | `docker-compose.prod.yml` → serviço `api` | `postgresql://postgres:postgres@db:5432/shop_barber?schema=public` |
+| `NODE_ENV` | `docker-compose.prod.yml` → serviço `api` | `production` (no dev: `development`) |
+| `POSTGRES_USER` | `docker-compose.prod.yml` → serviço `db` | `postgres` |
+| `POSTGRES_PASSWORD` | `docker-compose.prod.yml` → serviço `db` | `postgres` |
+| `POSTGRES_DB` | `docker-compose.prod.yml` → serviço `db` | `shop_barber` |
 
-Para sobrescrever em desenvolvimento, crie um arquivo `.env` na raiz e reference no `docker-compose.yml` com `env_file: .env`.
+Para sobrescrever, crie um arquivo `.env` na raiz e reference no compose com `env_file: .env`.
 
 ---
 
 ## Troubleshooting
 
 **API sobe mas não conecta ao banco**
-- Verifique se o `db` passou no healthcheck: `docker compose ps`
-- Veja os logs do banco: `docker compose logs db`
+- Verifique se o `db` passou no healthcheck: `docker compose -f docker-compose.prod.yml ps`
+- Veja os logs do banco: `docker compose -f docker-compose.prod.yml logs db`
 
 **`prisma generate` falha no build**
 - Confirme que `prisma/schema.prisma` existe e está correto
 - A `DATABASE_URL` fictícia no Dockerfile é intencional — não substitua por uma URL real
 
 **Mudanças no código não refletem no container**
-- Rode `docker compose up --build` para forçar o rebuild da imagem
+- Em produção, a imagem é imutável: rode `docker compose -f docker-compose.prod.yml up --build` para forçar o rebuild
+- Para desenvolvimento com reflexo automático, use `docker compose -f docker-compose.dev.yml up` (watch mode)
+- No dev sob WSL2, se o watch não disparar, descomente `CHOKIDAR_USEPOLLING: "true"` no `docker-compose.dev.yml`
 
 **Dados do banco sumiram**
-- Se rodou `docker compose down -v`, o volume foi apagado — isso é destrutivo
-- Use `docker compose down` (sem `-v`) para preservar os dados
+- Se rodou `docker compose ... down -v`, o volume foi apagado — isso é destrutivo
+- Use `docker compose ... down` (sem `-v`) para preservar os dados
 
-**Porta 5432 ou 3000 já em uso**
-- Outro processo está usando a porta. Pare-o ou altere o mapeamento no `docker-compose.yml` (ex: `"5433:5432"`)
+**Porta 5432 ou 4870 já em uso**
+- Outro processo está usando a porta. Pare-o ou altere o mapeamento no compose (ex: `"5433:5432"`)

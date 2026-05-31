@@ -1,3 +1,28 @@
+# ---------------------------------------------------------------------------
+# Estágio de desenvolvimento: roda em watch mode com o código vindo de
+# bind-mount (sem rebuild). Usado pelo docker-compose.dev.yml (target: dev).
+# ---------------------------------------------------------------------------
+FROM node:22-slim AS dev
+
+WORKDIR /app
+
+# Instala TODAS as deps, incluindo devDependencies (@nestjs/cli, ts-node, etc.)
+COPY package*.json ./
+RUN npm ci
+
+# Gera o Prisma Client (output padrão: node_modules/.prisma/client).
+# URL fictícia — prisma generate lê só o schema, não conecta ao banco.
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+RUN npx prisma generate
+
+EXPOSE 4870
+
+# O código e o docker-entrypoint.dev.sh vêm do bind-mount em runtime.
+ENTRYPOINT ["./docker-entrypoint.dev.sh"]
+
+
 FROM node:22-slim AS builder
 
 WORKDIR /app
@@ -41,6 +66,6 @@ COPY --from=builder /app/prisma.config.ts ./
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
-EXPOSE 3000
+EXPOSE 4870
 
 ENTRYPOINT ["./docker-entrypoint.sh"]

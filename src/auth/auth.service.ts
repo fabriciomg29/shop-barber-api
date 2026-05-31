@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { JwtService } from '@nestjs/jwt'
+import { JwtService, JwtSignOptions } from '@nestjs/jwt'
 import * as bcrypt from 'bcrypt'
 import { PrismaService } from '../prisma/prisma.service'
 import { JwtPayload, TokenPair } from './auth.types'
@@ -60,15 +60,18 @@ export class AuthService {
   }
 
   private async issueTokens(payload: JwtPayload): Promise<TokenPair> {
+    const accessOptions: JwtSignOptions = {
+      secret: this.config.get<string>('JWT_ACCESS_SECRET') ?? 'dev-access-secret',
+      // expiresIn é tipado como `number | StringValue` (ms); o valor vem como string do config
+      expiresIn: (this.config.get<string>('JWT_ACCESS_EXPIRES') ?? '15m') as JwtSignOptions['expiresIn'],
+    }
+    const refreshOptions: JwtSignOptions = {
+      secret: this.config.get<string>('JWT_REFRESH_SECRET') ?? 'dev-refresh-secret',
+      expiresIn: (this.config.get<string>('JWT_REFRESH_EXPIRES') ?? '7d') as JwtSignOptions['expiresIn'],
+    }
     const [accessToken, refreshToken] = await Promise.all([
-      this.jwt.signAsync(payload, {
-        secret: this.config.get<string>('JWT_ACCESS_SECRET') ?? 'dev-access-secret',
-        expiresIn: this.config.get<string>('JWT_ACCESS_EXPIRES') ?? '15m',
-      }),
-      this.jwt.signAsync(payload, {
-        secret: this.config.get<string>('JWT_REFRESH_SECRET') ?? 'dev-refresh-secret',
-        expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES') ?? '7d',
-      }),
+      this.jwt.signAsync(payload, accessOptions),
+      this.jwt.signAsync(payload, refreshOptions),
     ])
     return { accessToken, refreshToken }
   }
