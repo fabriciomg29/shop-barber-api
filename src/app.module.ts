@@ -18,6 +18,7 @@ import { EstoqueModule } from './estoque/estoque.module'
 import { FinanceiroModule } from './financeiro/financeiro.module'
 import { ComunicadoModule } from './comunicado/comunicado.module'
 import { NotificacaoModule } from './notificacao/notificacao.module'
+import { DashboardModule } from './dashboard/dashboard.module'
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { NotificacaoModule } from './notificacao/notificacao.module'
     FinanceiroModule,
     ComunicadoModule,
     NotificacaoModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [
